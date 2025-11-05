@@ -3,7 +3,9 @@ import { createServer } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 
 const app = express();
-const port = process.env.PORT || 5000;
+
+// Порт задається Railway через змінну середовища
+const port = process.env.PORT || 8080;
 
 // HTTP роут
 app.get('/', (req, res) => {
@@ -21,7 +23,8 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     console.log('Received:', message.toString());
-    // Розсилка всім клієнтам
+
+    // Розсилка всім підключеним клієнтам
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(message.toString());
