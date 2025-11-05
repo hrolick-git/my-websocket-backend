@@ -10,10 +10,10 @@ app.get('/', (req, res) => {
   res.send('Server is running');
 });
 
-// Створюємо HTTP-сервер на базі Express
+// Створюємо HTTP сервер на базі Express
 const server = createServer(app);
 
-// WebSocket сервер на тому ж HTTP-сервері
+// WebSocket сервер на тому ж HTTP сервері, під шляхом /ws
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws) => {
