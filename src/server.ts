@@ -1,38 +1,47 @@
-// server.ts
-import WebSocket, { WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer } from 'ws';
+import http from 'http';
 
-// Використовуємо порт з Railway, або 8080 за замовчуванням
+// Отримуємо порт із середовища (Railway надає його)
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
 // Масив для останніх 50 повідомлень
-const messages: string[] = [];
+const messages: { user: string; text: string }[] = [];
 
-const wss = new WebSocketServer({ port: PORT, path: "/ws" });
+// Створюємо HTTP сервер
+const server = http.createServer();
 
-wss.on("connection", (ws: WebSocket) => {
-  console.log("New client connected");
+const wss = new WebSocketServer({ server, path: '/ws' });
 
-  // Надсилаємо історію новому клієнту
-  messages.forEach((msg) => ws.send(msg));
+wss.on('connection', (ws) => {
+  console.log('New client connected');
 
-  ws.on("message", (message) => {
-    const msg = message.toString();
+  // Відправляємо останні 50 повідомлень при підключенні
+  ws.send(JSON.stringify({ type: 'history', messages }));
 
-    // Додаємо до історії
-    messages.push(msg);
-    if (messages.length > 50) messages.shift(); // залишаємо лише останні 50
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+      messages.push(message);
 
-    // Ретранслюємо всім клієнтам
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(msg);
-      }
-    });
+      // Зберігаємо лише останні 50
+      if (messages.length > 50) messages.shift();
+
+      // Розсилаємо всім клієнтам
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(message));
+        }
+      });
+    } catch (err) {
+      console.error('Failed to process message', err);
+    }
   });
 
-  ws.on("close", () => {
-    console.log("Client disconnected");
+  ws.on('close', () => {
+    console.log('Client disconnected');
   });
 });
 
-console.log(`WebSocket server running on ws://localhost:${PORT}/ws`);
+server.listen(PORT, () => {
+  console.log(`HTTP + WS server running on port ${PORT}`);
+});
