@@ -1,19 +1,27 @@
+import express from 'express';
+import { createServer } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 
-const PORT = process.env.PORT || 5000;
+const app = express();
+const port = process.env.PORT || 5000;
 
-// Підтримка WebSocket на будь-якому доступному хості і порту
-const wss = new WebSocketServer({ port: PORT });
+// HTTP роут
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
 
-console.log(`WebSocket server running on ws://0.0.0.0:${PORT}`);
+// Створюємо HTTP-сервер на базі Express
+const server = createServer(app);
+
+// WebSocket сервер на тому ж HTTP-сервері
+const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws) => {
-  console.log('New client connected');
+  console.log('Client connected');
 
   ws.on('message', (message) => {
     console.log('Received:', message.toString());
-
-    // Шлемо всім клієнтам
+    // Розсилка всім клієнтам
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(message.toString());
@@ -24,4 +32,9 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     console.log('Client disconnected');
   });
+});
+
+// Запуск сервера
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
