@@ -1,40 +1,36 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import http from 'http';
 
-// Отримуємо порт із середовища (Railway надає його)
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-// Масив для останніх 50 повідомлень
-const messages: { user: string; text: string }[] = [];
+interface Message {
+  user: string;
+  text: string;
+}
 
-// Створюємо HTTP сервер
+// Зберігаємо останні 50 повідомлень
+const messages: Message[] = [];
+
 const server = http.createServer();
-
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws) => {
   console.log('New client connected');
 
-  // Відправляємо останні 50 повідомлень при підключенні
-  ws.send(JSON.stringify({ type: 'history', messages }));
+  // Надсилаємо останні повідомлення при підключенні
+  ws.send(JSON.stringify(messages));
 
   ws.on('message', (data) => {
-    try {
-      const message = JSON.parse(data.toString());
-      messages.push(message);
+    const message: Message = JSON.parse(data.toString());
+    messages.push(message);
+    if (messages.length > 50) messages.shift();
 
-      // Зберігаємо лише останні 50
-      if (messages.length > 50) messages.shift();
-
-      // Розсилаємо всім клієнтам
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(message));
-        }
-      });
-    } catch (err) {
-      console.error('Failed to process message', err);
-    }
+    // Відправляємо всім клієнтам
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
   });
 
   ws.on('close', () => {
@@ -43,5 +39,5 @@ wss.on('connection', (ws) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`HTTP + WS server running on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
