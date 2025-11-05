@@ -1,4 +1,3 @@
-// server.js
 import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
@@ -6,13 +5,16 @@ import { WebSocketServer } from 'ws';
 const app = express();
 const port = process.env.PORT || 5000;
 
-const server = http.createServer(app); // HTTP сервер, Railway надає HTTPS автоматично
+// HTTP сервер
+const server = http.createServer(app);
+
+// WebSocket на тому ж сервері
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
   console.log('New client connected');
+
   ws.on('message', (message) => {
-    // Розсилаємо всім
     wss.clients.forEach((client) => {
       if (client.readyState === ws.OPEN) client.send(message);
     });
@@ -20,5 +22,5 @@ wss.on('connection', (ws) => {
 });
 
 server.listen(port, () => {
-  console.log(`WebSocket server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
