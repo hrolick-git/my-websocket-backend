@@ -20,49 +20,42 @@ const server = http.createServer();
 const wss = new WebSocketServer({ server, path: "/ws" });
 
 wss.on("connection", (ws) => {
-  console.log("🔗 New client connected");
+  console.log("New client connected");
 
-  // 🔹 Надсилаємо історію
+  // Надсилаємо історію повідомлень
   ws.send(JSON.stringify({ type: "history", data: messages }));
 
-  ws.on("message", (rawData) => {
-    try {
-      const payload = JSON.parse(rawData.toString());
+  ws.on("message", (data) => {
+    const payload = JSON.parse(data.toString());
 
-      // 🟢 Нове повідомлення
-      if (payload.type === "message" && payload.data) {
-        const msg: Message = payload.data;
-        messages.push(msg);
-        if (messages.length > 50) messages.shift();
+    if (payload.type === "message" && payload.data) {
+      const message = payload.data as Message;
+      messages.push(message);
+      if (messages.length > 50) messages.shift();
 
-        broadcast({ type: "message", data: msg });
-      }
-
-      // 🟢 Оновлення статусу продажу
-      if (payload.type === "update" && payload.id) {
-        const msg = messages.find((m) => m.id === payload.id);
-        if (msg) {
-          msg.sold = payload.sold;
-          broadcast({ type: "update", data: msg });
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "message", data: message }));
         }
+      });
+
+    } else if (payload.type === "mark_sold" && payload.data?.id) {
+      const id = payload.data.id;
+      const msg = messages.find((m) => m.id === id);
+      if (msg) {
+        msg.sold = true;
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: "message", data: msg }));
+          }
+        });
       }
-    } catch (err) {
-      console.error("❌ Error parsing message:", err);
     }
   });
 
-  ws.on("close", () => console.log("❎ Client disconnected"));
+  ws.on("close", () => console.log("Client disconnected"));
 });
 
-function broadcast(data: any) {
-  const json = JSON.stringify(data);
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(json);
-    }
-  });
-}
-
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
