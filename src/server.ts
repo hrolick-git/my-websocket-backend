@@ -1,72 +1,50 @@
-// server.ts
-import WebSocket, { WebSocketServer } from 'ws';
-import http from 'http';
-import { randomUUID } from 'crypto';
+import WebSocket, { WebSocketServer } from "ws";
+import http from "http";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-interface ChatMessage {
+interface Message {
   id: string;
   user: string;
   color: string;
   text: string;
   farmTag?: string;
-  time: string; // ISO string
+  time: string;
   selling?: boolean;
   sold?: boolean;
 }
 
-// Зберігаємо останні 50 повідомлень
-const messages: ChatMessage[] = [];
+const messages: Message[] = [];
 
 const server = http.createServer();
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: "/ws" });
 
-wss.on('connection', (ws) => {
-  console.log('✅ New client connected');
+wss.on("connection", (ws) => {
+  console.log("New client connected");
 
-  // Надсилаємо історію тільки новому клієнту
-  ws.send(JSON.stringify({ type: 'history', data: messages }));
+  // 🔹 Надсилаємо історію
+  ws.send(JSON.stringify({ type: "history", data: messages }));
 
-  ws.on('message', (data) => {
-    try {
-      const payload = JSON.parse(data.toString());
+  ws.on("message", (data) => {
+    const payload = JSON.parse(data.toString());
 
-      // Перевіряємо тип
-      if (payload.type === 'message') {
-        const msg: ChatMessage = {
-          id: randomUUID(),
-          user: payload.user,
-          color: payload.color || '#ffffff',
-          text: payload.text,
-          farmTag: payload.farmTag,
-          time: new Date().toISOString(),
-          selling: payload.selling,
-          sold: payload.sold,
-        };
+    if (payload.type === "message" && payload.data) {
+      const message = payload.data as Message;
+      messages.push(message);
+      if (messages.length > 50) messages.shift();
 
-        // Додаємо в історію
-        messages.push(msg);
-        if (messages.length > 50) messages.shift();
-
-        // Розсилаємо всім
-        const out = JSON.stringify({ type: 'message', data: msg });
-        wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(out);
-          }
-        });
-      }
-    } catch (err) {
-      console.error('❌ Error parsing message:', err);
+      // 🔹 Розсилаємо нове повідомлення всім
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "message", data: message }));
+        }
+      });
     }
   });
 
-  ws.on('close', () => {
-    console.log('❎ Client disconnected');
-  });
+  ws.on("close", () => console.log("Client disconnected"));
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server listening on port ${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
